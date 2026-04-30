@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#6C63FF">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="アイデアノート">
+  <title>アイデアノート</title>
+  <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --daily:#FF6B6B; --work:#4ECDC4; --other:#FFE66D;
+      --done-bg:#e8e8f0; --bg:#F0EFF8; --surface:#FFFFFF;
+      --text:#2D2B55; --sub:#8886AA;
+      --shadow:0 4px 20px rgba(108,99,255,0.12);
+      --radius:18px; --purple:#6C63FF;
+    }
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'Zen Maru Gothic',sans-serif;background:var(--bg);color:var(--text);min-height:100dvh;display:flex;flex-direction:column;overflow-x:hidden;}
+
+    /* HEADER */
+    header{background:linear-gradient(135deg,#6C63FF,#A78BFA);color:white;padding:20px 20px 28px;position:sticky;top:0;z-index:100;box-shadow:0 4px 20px rgba(108,99,255,0.3);}
+    .header-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+    .app-title{font-size:1.3rem;font-weight:700;letter-spacing:.05em;}
+    .stats{font-size:.78rem;opacity:.85;background:rgba(255,255,255,.2);padding:4px 12px;border-radius:20px;}
+    .tabs{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;}
+    .tabs::-webkit-scrollbar{display:none;}
+    .tab{flex-shrink:0;padding:7px 16px;border-radius:20px;border:2px solid rgba(255,255,255,.5);background:transparent;color:white;font-family:'Zen Maru Gothic',sans-serif;font-size:.85rem;font-weight:700;cursor:pointer;transition:all .2s;}
+    .tab.active{background:white;color:#6C63FF;border-color:white;}
+
+    /* FILTER */
+    .filter-bar{padding:12px 16px 0;display:flex;gap:8px;}
+    .filter-btn{padding:5px 14px;border-radius:20px;border:2px solid transparent;font-family:'Zen Maru Gothic',sans-serif;font-size:.8rem;font-weight:700;cursor:pointer;transition:all .2s;background:var(--surface);color:var(--sub);}
+    .filter-btn.active-filter{background:var(--text);color:white;}
+
+    /* LIST */
+    .list-wrap{flex:1;padding:12px 16px 110px;display:flex;flex-direction:column;gap:10px;}
+    .empty-state{text-align:center;padding:60px 20px;color:var(--sub);}
+    .empty-state .emoji{font-size:3rem;margin-bottom:12px;}
+    .empty-state p{font-size:.9rem;line-height:1.7;}
+
+    /* CARD */
+    .idea-card{background:var(--surface);border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow);display:flex;gap:12px;align-items:flex-start;animation:slideIn .3s ease;border-left:5px solid #ddd;cursor:pointer;transition:transform .15s;}
+    .idea-card:active{transform:scale(.98);}
+    @keyframes slideIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+    .idea-card.cat-daily{border-left-color:var(--daily);}
+    .idea-card.cat-work{border-left-color:var(--work);}
+    .idea-card.cat-other{border-left-color:var(--other);}
+    .idea-card.is-done{background:var(--done-bg);opacity:.7;}
+    .idea-card.is-done .idea-title,.idea-card.is-done .idea-text{text-decoration:line-through;color:var(--sub);}
+    .check-wrap{flex-shrink:0;margin-top:2px;}
+    .check-btn{width:28px;height:28px;border-radius:50%;border:2.5px solid #ccc;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:0;transition:all .2s;}
+    .check-btn.checked{background:#6C63FF;border-color:#6C63FF;font-size:.9rem;}
+    .check-btn.checked::after{content:'✓';color:white;}
+    .idea-body{flex:1;min-width:0;}
+    .idea-meta{display:flex;align-items:center;gap:6px;margin-bottom:5px;flex-wrap:wrap;}
+    .cat-badge{font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:10px;letter-spacing:.03em;}
+    .cat-daily .cat-badge{background:#FFE5E5;color:#c0392b;}
+    .cat-work  .cat-badge{background:#E0F7F5;color:#0e7a6e;}
+    .cat-other .cat-badge{background:#FFF9DC;color:#9a7d0a;}
+    .idea-date{font-size:.72rem;color:var(--sub);}
+    .idea-title{font-size:1rem;font-weight:700;margin-bottom:4px;}
+    .idea-text{font-size:.88rem;line-height:1.6;color:var(--sub);word-break:break-all;}
+    .attach-thumb-row{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;}
+    .attach-thumb{width:56px;height:56px;object-fit:cover;border-radius:10px;border:2px solid var(--bg);}
+    .attach-file-chip{display:inline-flex;align-items:center;gap:4px;background:var(--bg);border-radius:8px;padding:4px 10px;font-size:.75rem;color:var(--sub);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .section-label{font-size:.8rem;font-weight:700;color:var(--sub);padding:8px 4px 4px;letter-spacing:.05em;}
+
+    /* FAB */
+    .fab{position:fixed;bottom:80px;right:20px;width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,#6C63FF,#A78BFA);border:none;color:white;font-size:2rem;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 24px rgba(108,99,255,.45);transition:transform .15s;z-index:90;}
+    .fab:active{transform:scale(.92);}
+
+    /* BOTTOM NAV */
+    .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--surface);padding:10px 20px 20px;display:flex;justify-content:space-around;box-shadow:0 -4px 20px rgba(0,0,0,.08);z-index:90;}
+    .nav-item{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:.68rem;color:var(--sub);cursor:pointer;font-weight:700;}
+    .nav-item.active-nav{color:#6C63FF;}
+    .nav-icon{font-size:1.4rem;}
+
+    /* MODAL OVERLAY */
+    .modal-overlay{display:none;position:fixed;inset:0;z-index:200;background:rgba(20,18,60,.5);backdrop-filter:blur(4px);align-items:flex-end;justify-content:center;}
+    .modal-overlay.open{display:flex;}
+    .modal{background:var(--surface);border-radius:28px 28px 0 0;padding:20px 20px 40px;width:100%;max-height:92dvh;overflow-y:auto;animation:slideUp .3s cubic-bezier(.32,1.2,.42,1);}
+    @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+    .modal-handle{width:44px;height:5px;border-radius:3px;background:#ddd;margin:0 auto 18px;}
+    .modal-title-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
+    .modal-title-bar h2{font-size:1.1rem;font-weight:700;}
+    .modal-close{background:var(--bg);border:none;border-radius:50%;width:34px;height:34px;font-size:1rem;cursor:pointer;color:var(--sub);}
+
+    /* FORM */
+    .field{margin-bottom:16px;}
+    .field label{display:block;font-size:.8rem;font-weight:700;color:var(--sub);margin-bottom:6px;letter-spacing:.05em;}
+    .field input[type=text],.field textarea,.field select{width:100%;padding:12px 14px;border-radius:14px;border:2px solid var(--bg);background:var(--bg);color:var(--text);font-family:'Zen Maru Gothic',sans-serif;font-size:.95rem;outline:none;transition:border-color .2s;}
+    .field input[type=text]:focus,.field textarea:focus,.field select:focus{border-color:var(--purple);background:white;}
+    .field textarea{resize:none;min-height:90px;line-height:1.6;}
+
+    /* FILE UPLOAD */
+    .file-upload-area{border:2.5px dashed #C8C5F0;border-radius:14px;padding:20px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;background:var(--bg);position:relative;}
+    .file-upload-area:hover{border-color:var(--purple);background:#f5f4ff;}
+    .file-upload-area input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+    .file-upload-label{font-size:.85rem;color:var(--sub);pointer-events:none;}
+    .file-upload-label span{font-size:1.6rem;display:block;margin-bottom:6px;}
+    .preview-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;}
+    .preview-item{position:relative;width:72px;height:72px;}
+    .preview-item img{width:72px;height:72px;object-fit:cover;border-radius:12px;border:2px solid var(--bg);}
+    .file-icon{width:72px;height:72px;border-radius:12px;background:#E8E7FF;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:.6rem;color:var(--purple);font-weight:700;text-align:center;padding:4px;word-break:break-all;line-height:1.3;}
+    .file-icon .file-emoji{font-size:1.4rem;margin-bottom:3px;}
+    .preview-remove{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:#FF6B6B;color:white;border:none;font-size:.75rem;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+
+    /* SUBMIT */
+    .submit-btn{width:100%;padding:15px;border-radius:16px;border:none;background:linear-gradient(135deg,#6C63FF,#A78BFA);color:white;font-family:'Zen Maru Gothic',sans-serif;font-size:1rem;font-weight:700;cursor:pointer;box-shadow:0 4px 16px rgba(108,99,255,.35);transition:transform .15s;margin-top:8px;}
+    .submit-btn:active{transform:scale(.97);}
+
+    /* DETAIL MODAL */
+    .detail-modal{background:var(--surface);border-radius:28px 28px 0 0;padding:20px 20px 40px;width:100%;max-height:92dvh;overflow-y:auto;animation:slideUp .3s cubic-bezier(.32,1.2,.42,1);}
+    .detail-cat-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+    .detail-title{font-size:1.3rem;font-weight:700;margin-bottom:10px;line-height:1.4;}
+    .detail-text{font-size:.95rem;line-height:1.8;color:#444;white-space:pre-wrap;word-break:break-all;}
+    .detail-section-label{font-size:.78rem;font-weight:700;color:var(--sub);margin:16px 0 8px;letter-spacing:.05em;}
+    .detail-attachments{display:flex;flex-wrap:wrap;gap:10px;}
+    .detail-img{width:calc(50% - 5px);border-radius:14px;border:2px solid var(--bg);cursor:zoom-in;object-fit:cover;aspect-ratio:1;}
+    .detail-file-chip{display:inline-flex;align-items:center;gap:6px;background:var(--bg);border-radius:10px;padding:8px 14px;font-size:.82rem;color:var(--text);font-weight:700;cursor:pointer;text-decoration:none;}
+    .detail-actions{display:flex;gap:10px;margin-top:20px;}
+    .action-btn{flex:1;padding:13px;border-radius:14px;border:none;font-family:'Zen Maru Gothic',sans-serif;font-size:.9rem;font-weight:700;cursor:pointer;transition:opacity .2s;}
+    .action-btn:active{opacity:.7;}
+    .btn-done{background:#6C63FF;color:white;}
+    .btn-delete{background:#FFE5E5;color:#c0392b;}
+
+
+    /* SUBTASK */
+    .subtask-section{margin-top:16px;}
+    .subtask-section-label{font-size:.78rem;font-weight:700;color:var(--sub);letter-spacing:.05em;margin-bottom:8px;}
+    .subtask-add-row{display:flex;gap:8px;margin-bottom:10px;}
+    .subtask-input{flex:1;padding:9px 12px;border-radius:12px;border:2px solid var(--bg);background:var(--bg);color:var(--text);font-family:'Zen Maru Gothic',sans-serif;font-size:.88rem;outline:none;transition:border-color .2s;}
+    .subtask-input:focus{border-color:var(--purple);background:white;}
+    .subtask-add-btn{flex-shrink:0;width:36px;height:36px;border-radius:10px;background:var(--purple);border:none;color:white;font-size:1.2rem;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+    .subtask-list{display:flex;flex-direction:column;gap:6px;}
+    .subtask-item{display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg);border-radius:12px;}
+    .subtask-check{width:22px;height:22px;border-radius:50%;border:2.5px solid #ccc;background:transparent;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:0;transition:all .2s;}
+    .subtask-check.done{background:#6C63FF;border-color:#6C63FF;font-size:.75rem;}
+    .subtask-check.done::after{content:'✓';color:white;}
+    .subtask-text{flex:1;font-size:.88rem;line-height:1.4;}
+    .subtask-text.done{text-decoration:line-through;color:var(--sub);}
+    .subtask-del{background:none;border:none;color:#ccc;font-size:.9rem;cursor:pointer;flex-shrink:0;padding:2px 4px;}
+    .subtask-del:active{color:#FF6B6B;}
+    .subtask-progress{margin-top:8px;}
+    .subtask-progress-row{display:flex;justify-content:space-between;font-size:.72rem;color:var(--sub);margin-bottom:4px;}
+    .subtask-bar-track{height:6px;background:#e0dfee;border-radius:6px;overflow:hidden;}
+    .subtask-bar-fill{height:100%;background:var(--purple);border-radius:6px;transition:width .4s;}
+    /* カードのサブタスク進捗ミニ表示 */
+    .card-subtask-row{display:flex;align-items:center;gap:6px;margin-top:6px;}
+    .card-subtask-bar{flex:1;height:4px;background:#e0dfee;border-radius:4px;overflow:hidden;}
+    .card-subtask-fill{height:100%;background:var(--purple);border-radius:4px;}
+    .card-subtask-label{font-size:.7rem;color:var(--sub);white-space:nowrap;}
+    /* LIGHTBOX */
+    .lightbox{display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.9);align-items:center;justify-content:center;}
+    .lightbox.open{display:flex;}
+    .lightbox img{max-width:95vw;max-height:90dvh;border-radius:12px;}
+    .lightbox-close{position:absolute;top:16px;right:16px;background:rgba(255,255,255,.2);border:none;color:white;font-size:1.4rem;width:40px;height:40px;border-radius:50%;cursor:pointer;}
+
+    /* PAGE SWITCH */
+    .page{display:none;flex:1;flex-direction:column;}
+    .page.active-page{display:flex;}
+
+    /* STATS PAGE */
+    .stats-page-wrap{padding:16px 16px 110px;display:flex;flex-direction:column;gap:14px;}
+    .stats-card{background:var(--surface);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);}
+    .stats-card-title{font-size:.78rem;font-weight:700;color:var(--sub);letter-spacing:.05em;margin-bottom:14px;}
+    .stats-numbers{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center;}
+    .stat-num{font-size:1.8rem;font-weight:700;color:var(--purple);line-height:1;}
+    .stat-label{font-size:.7rem;color:var(--sub);margin-top:4px;}
+    .bar-row{display:flex;flex-direction:column;gap:10px;}
+    .bar-item{}
+    .bar-label-row{display:flex;justify-content:space-between;font-size:.8rem;margin-bottom:5px;}
+    .bar-label-row span:first-child{font-weight:700;}
+    .bar-track{height:10px;background:var(--bg);border-radius:10px;overflow:hidden;}
+    .bar-fill{height:100%;border-radius:10px;transition:width .6s ease;}
+    .bar-daily{background:var(--daily);}
+    .bar-work{background:var(--work);}
+    .bar-other{background:var(--other);}
+    .donut-wrap{display:flex;align-items:center;gap:20px;}
+    .donut-svg{flex-shrink:0;}
+    .donut-legend{display:flex;flex-direction:column;gap:8px;}
+    .legend-item{display:flex;align-items:center;gap:8px;font-size:.82rem;}
+    .legend-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;}
+
+    /* SETTINGS PAGE */
+    .settings-wrap{padding:16px 16px 110px;display:flex;flex-direction:column;gap:10px;}
+    .settings-section-label{font-size:.75rem;font-weight:700;color:var(--sub);letter-spacing:.06em;padding:8px 4px 4px;}
+    .settings-row{background:var(--surface);border-radius:14px;padding:16px;box-shadow:var(--shadow);display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:12px;width:100%;}
+    .settings-row-left{display:flex;flex-direction:row;align-items:center;gap:12px;flex:1;min-width:0;overflow:hidden;}
+    .settings-icon{font-size:1.3rem;width:36px;height:36px;border-radius:10px;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+    .settings-label{font-size:.92rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .settings-sub{font-size:.75rem;color:var(--sub);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .settings-text{flex:1;min-width:0;overflow:hidden;}
+    .settings-arrow{color:var(--sub);font-size:.9rem;flex-shrink:0;}
+    .settings-row>button{background:none;border:none;flex:1;min-width:0;text-align:left;cursor:pointer;font-family:'Zen Maru Gothic',sans-serif;padding:0;display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:12px;}
+    .settings-edit-btn{background:none;border:none;color:var(--purple);font-size:.85rem;cursor:pointer;font-family:'Zen Maru Gothic',sans-serif;font-weight:700;flex-shrink:0;padding:4px 0 4px 8px;white-space:nowrap;}
+    .danger-row .settings-label{color:#c0392b;}
+    .toggle-switch{position:relative;width:46px;height:26px;flex-shrink:0;}
+    .toggle-switch input{opacity:0;width:0;height:0;}
+    .toggle-slider{position:absolute;inset:0;background:#ccc;border-radius:26px;transition:.3s;cursor:pointer;}
+    .toggle-slider:before{content:'';position:absolute;width:20px;height:20px;left:3px;bottom:3px;background:white;border-radius:50%;transition:.3s;}
+    .toggle-switch input:checked+.toggle-slider{background:var(--purple);}
+    .toggle-switch input:checked+.toggle-slider:before{transform:translateX(20px);}
+
+    /* TOAST */
+    .toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);background:#2D2B55;color:white;padding:10px 22px;border-radius:30px;font-size:.85rem;font-weight:700;opacity:0;transition:all .3s;z-index:999;white-space:nowrap;pointer-events:none;}
+    .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-top">
+    <div class="app-title">💡 アイデアノート</div>
+    <div class="stats" id="stats">0件 / 完了0件</div>
+  </div>
+  <div class="tabs">
+    <button class="tab active" onclick="setTab('all')">すべて</button>
+    <button class="tab" onclick="setTab('daily')">🏠 日常</button>
+    <button class="tab" onclick="setTab('work')">💼 仕事</button>
+    <button class="tab" onclick="setTab('other')">✨ その他</button>
+  </div>
+</header>
+
+<!-- ===== メモページ ===== -->
+<div class="page active-page" id="page-memo">
+  <div class="filter-bar">
+    <button class="filter-btn active-filter" onclick="setFilter('all',this)">全部</button>
+    <button class="filter-btn" onclick="setFilter('todo',this)">未完了</button>
+    <button class="filter-btn" onclick="setFilter('done',this)">完了済み</button>
+  </div>
+  <div class="list-wrap" id="list"></div>
+</div>
+
+<!-- ===== 統計ページ ===== -->
+<div class="page" id="page-stats">
+  <div class="stats-page-wrap" id="stats-content"></div>
+</div>
+
+<!-- ===== 設定ページ ===== -->
+<div class="page" id="page-settings">
+  <div class="settings-wrap">
+    <div class="settings-section-label">カテゴリ</div>
+    <div class="settings-row">
+      <div class="settings-row-left">
+        <div class="settings-icon">🏠</div>
+        <div class="settings-text"><div class="settings-label" id="lbl-daily">日常</div><div class="settings-sub">日常の改善・気づき</div></div>
+      </div>
+      <button class="settings-edit-btn" onclick="renameCategory('daily')">編集</button>
+    </div>
+    <div class="settings-row">
+      <div class="settings-row-left">
+        <div class="settings-icon">💼</div>
+        <div class="settings-text"><div class="settings-label" id="lbl-work">仕事</div><div class="settings-sub">仕事の改善・アイデア</div></div>
+      </div>
+      <button class="settings-edit-btn" onclick="renameCategory('work')">編集</button>
+    </div>
+    <div class="settings-row">
+      <div class="settings-row-left">
+        <div class="settings-icon">✨</div>
+        <div class="settings-text"><div class="settings-label" id="lbl-other">その他</div><div class="settings-sub">その他の思いつき</div></div>
+      </div>
+      <button class="settings-edit-btn" onclick="renameCategory('other')">編集</button>
+    </div>
+
+    <div class="settings-section-label">表示</div>
+    <div class="settings-row">
+      <div class="settings-row-left">
+        <div class="settings-icon">🌙</div>
+        <div><div class="settings-label">ダークモード</div><div class="settings-sub">画面を暗くする</div></div>
+      </div>
+      <label class="toggle-switch">
+        <input type="checkbox" id="dark-toggle" onchange="toggleDark(this.checked)">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+
+    <div class="settings-section-label">データ</div>
+    <div class="settings-row">
+      <button onclick="exportData()">
+        <div class="settings-row-left">
+          <div class="settings-icon">📤</div>
+          <div><div class="settings-label">データをエクスポート</div><div class="settings-sub">JSONファイルで保存</div></div>
+        </div>
+        <span class="settings-arrow">›</span>
+      </button>
+    </div>
+    <div class="settings-row">
+      <button onclick="importData()">
+        <div class="settings-row-left">
+          <div class="settings-icon">📥</div>
+          <div><div class="settings-label">データをインポート</div><div class="settings-sub">JSONファイルから復元</div></div>
+        </div>
+        <span class="settings-arrow">›</span>
+      </button>
+    </div>
+    <input type="file" id="import-input" accept=".json" style="display:none" onchange="doImport(this)">
+
+    <div class="settings-section-label">危険な操作</div>
+    <div class="settings-row danger-row">
+      <button onclick="clearAll()">
+        <div class="settings-row-left">
+          <div class="settings-icon">🗑️</div>
+          <div><div class="settings-label">すべて削除</div><div class="settings-sub">全データを消去します</div></div>
+        </div>
+        <span class="settings-arrow">›</span>
+      </button>
+    </div>
+
+    <div style="text-align:center;padding:20px;font-size:.75rem;color:var(--sub);">
+      💡 アイデアノート v2.0<br>データはこの端末に保存されています
+    </div>
+  </div>
+</div>
+
+<button class="fab" id="fab" onclick="openAddModal()">＋</button>
+
+<div class="bottom-nav">
+  <div class="nav-item active-nav" id="nav-memo" onclick="switchPage('memo')"><span class="nav-icon">📝</span>メモ</div>
+  <div class="nav-item" id="nav-stats" onclick="switchPage('stats')"><span class="nav-icon">📊</span>統計</div>
+  <div class="nav-item" id="nav-settings" onclick="switchPage('settings')"><span class="nav-icon">⚙️</span>設定</div>
+</div>
+
+<!-- ADD MODAL -->
+<div class="modal-overlay" id="add-overlay" onclick="overlayClose(event,'add-overlay')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title-bar">
+      <h2>💡 新しいアイデア</h2>
+      <button class="modal-close" onclick="closeAddModal()">✕</button>
+    </div>
+    <div class="field">
+      <label>カテゴリ</label>
+      <select id="f-cat">
+        <option value="daily">🏠 日常</option>
+        <option value="work">💼 仕事</option>
+        <option value="other">✨ その他</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>タイトル ＊</label>
+      <input type="text" id="f-title" placeholder="例：会議の効率化アイデア">
+    </div>
+    <div class="field">
+      <label>内容</label>
+      <textarea id="f-body" placeholder="詳しい内容をメモ…"></textarea>
+    </div>
+    <div class="field">
+      <label>添付ファイル（画像・PDF・その他）</label>
+      <div class="file-upload-area">
+        <input type="file" id="f-files" multiple accept="*/*" onchange="handleFiles(this.files)">
+        <div class="file-upload-label">
+          <span>📎</span>
+          タップしてファイルを選択<br>
+          <small>画像・PDF・資料など何でもOK</small>
+        </div>
+      </div>
+      <div class="preview-grid" id="preview-grid"></div>
+    </div>
+    <button class="submit-btn" onclick="addIdea()">追加する</button>
+  </div>
+</div>
+
+<!-- DETAIL MODAL -->
+<div class="modal-overlay" id="detail-overlay" onclick="overlayClose(event,'detail-overlay')">
+  <div class="detail-modal" id="detail-content"></div>
+</div>
+
+<!-- LIGHTBOX -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+  <img id="lightbox-img" src="" alt="">
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let CAT_LABELS = {daily:'日常',work:'仕事',other:'その他'};
+const CAT_COLORS = {daily:'#FFE5E5',work:'#E0F7F5',other:'#FFF9DC'};
+const CAT_TEXT   = {daily:'#c0392b',work:'#0e7a6e',other:'#9a7d0a'};
+
+// ===== ページ切り替え =====
+let currentPage = 'memo';
+function switchPage(page){
+  currentPage = page;
+  ['memo','stats','settings'].forEach(p=>{
+    document.getElementById('page-'+p).classList.toggle('active-page', p===page);
+    document.getElementById('nav-'+p).classList.toggle('active-nav', p===page);
+  });
+  document.getElementById('fab').style.display = page==='memo' ? 'flex' : 'none';
+  if(page==='stats') renderStats();
+  if(page==='settings') renderSettingsLabels();
+}
+
+// ===== 統計 =====
+function renderStats(){
+  const total = ideas.length;
+  const done  = ideas.filter(i=>i.done).length;
+  const todo  = total - done;
+  const pct   = total ? Math.round(done/total*100) : 0;
+
+  const countBycat = {daily:0,work:0,other:0};
+  ideas.forEach(i=>countBycat[i.cat]=(countBycat[i.cat]||0)+1);
+  const maxCat = Math.max(...Object.values(countBycat),1);
+
+  // 直近7日のアクティビティ
+  const days7 = [];
+  for(let d=6;d>=0;d--){
+    const dt = new Date(); dt.setDate(dt.getDate()-d);
+    const label = (dt.getMonth()+1)+'/'+ dt.getDate();
+    const key = dt.toLocaleDateString('ja-JP',{month:'short',day:'numeric'});
+    const cnt = ideas.filter(i=>i.date && i.date.startsWith(key.replace(' ',''))).length;
+    days7.push({label, cnt});
+  }
+  const maxDay = Math.max(...days7.map(d=>d.cnt),1);
+
+  // ドーナツ用SVG
+  const r=40, cx=50, cy=50, circ=2*Math.PI*r;
+  const cats=['daily','work','other'];
+  const catColors=['#FF6B6B','#4ECDC4','#FFE66D'];
+  let offset=0;
+  const slices = cats.map((c,i)=>{
+    const ratio = total ? countBycat[c]/total : 0;
+    const dash  = ratio*circ;
+    const gap   = circ - dash;
+    const slice = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${catColors[i]}" stroke-width="18"
+      stroke-dasharray="${dash} ${gap}" stroke-dashoffset="${-offset}" transform="rotate(-90 ${cx} ${cy})"/>`;
+    offset += dash;
+    return slice;
+  }).join('');
+
+  document.getElementById('stats-content').innerHTML = `
+    <!-- サマリー -->
+    <div class="stats-card">
+      <div class="stats-card-title">📊 サマリー</div>
+      <div class="stats-numbers">
+        <div><div class="stat-num">${total}</div><div class="stat-label">合計</div></div>
+        <div><div class="stat-num" style="color:#4ECDC4">${done}</div><div class="stat-label">完了</div></div>
+        <div><div class="stat-num" style="color:#FF6B6B">${todo}</div><div class="stat-label">未完了</div></div>
+      </div>
+      <div style="margin-top:16px;">
+        <div style="display:flex;justify-content:space-between;font-size:.8rem;margin-bottom:6px;">
+          <span style="font-weight:700">完了率</span><span style="color:var(--purple);font-weight:700">${pct}%</span>
+        </div>
+        <div class="bar-track"><div class="bar-fill bar-work" style="width:${pct}%"></div></div>
+      </div>
+    </div>
+
+    <!-- カテゴリ別 -->
+    <div class="stats-card">
+      <div class="stats-card-title">🗂️ カテゴリ別</div>
+      <div class="donut-wrap">
+        <svg class="donut-svg" width="100" height="100" viewBox="0 0 100 100">
+          ${total ? slices : `<circle cx="50" cy="50" r="40" fill="none" stroke="#eee" stroke-width="18"/>`}
+          <text x="50" y="54" text-anchor="middle" font-size="14" font-weight="bold" fill="#2D2B55">${pct}%</text>
+        </svg>
+        <div class="donut-legend">
+          ${cats.map((c,i)=>`
+            <div class="legend-item">
+              <div class="legend-dot" style="background:${catColors[i]}"></div>
+              <span style="font-weight:700">${CAT_LABELS[c]}</span>
+              <span style="color:var(--sub)">${countBycat[c]}件</span>
+            </div>`).join('')}
+        </div>
+      </div>
+      <div class="bar-row" style="margin-top:16px;">
+        ${cats.map((c,i)=>`
+          <div class="bar-item">
+            <div class="bar-label-row">
+              <span>${CAT_LABELS[c]}</span><span style="color:var(--sub)">${countBycat[c]}件</span>
+            </div>
+            <div class="bar-track">
+              <div class="bar-fill" style="width:${Math.round(countBycat[c]/maxCat*100)}%;background:${catColors[i]}"></div>
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>
+
+    <!-- 直近7日 -->
+    <div class="stats-card">
+      <div class="stats-card-title">📅 直近7日の追加数</div>
+      <div style="display:flex;align-items:flex-end;gap:6px;height:80px;padding-top:8px;">
+        ${days7.map(d=>`
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
+            <div style="font-size:.65rem;color:var(--sub);font-weight:700">${d.cnt||''}</div>
+            <div style="width:100%;background:${d.cnt?'var(--purple)':'var(--bg)'};border-radius:6px 6px 0 0;
+              height:${d.cnt?Math.max(8,Math.round(d.cnt/maxDay*52)):4}px;transition:height .4s;min-height:4px;"></div>
+            <div style="font-size:.6rem;color:var(--sub)">${d.label}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+  `;
+}
+
+// ===== 設定 =====
+function renderSettingsLabels(){
+  ['daily','work','other'].forEach(c=>{
+    const el=document.getElementById('lbl-'+c);
+    if(el) el.textContent=CAT_LABELS[c];
+  });
+  // ダークモード状態反映
+  document.getElementById('dark-toggle').checked = document.body.classList.contains('dark');
+}
+
+function renameCategory(cat){
+  const newName = prompt(`「${CAT_LABELS[cat]}」の新しい名前を入力:`, CAT_LABELS[cat]);
+  if(!newName || !newName.trim()) return;
+  CAT_LABELS[cat] = newName.trim();
+  localStorage.setItem('catLabels', JSON.stringify(CAT_LABELS));
+  renderSettingsLabels();
+  // タブラベルも更新
+  const tabMap={all:'すべて',daily:'🏠 '+CAT_LABELS.daily,work:'💼 '+CAT_LABELS.work,other:'✨ '+CAT_LABELS.other};
+  document.querySelectorAll('.tab').forEach((t,i)=>{
+    t.textContent=['すべて','🏠 '+CAT_LABELS.daily,'💼 '+CAT_LABELS.work,'✨ '+CAT_LABELS.other][i];
+  });
+  showToast('✅ カテゴリ名を変更しました');
+}
+
+function toggleDark(on){
+  document.body.classList.toggle('dark', on);
+  localStorage.setItem('darkMode', on?'1':'0');
+  if(on){
+    document.documentElement.style.setProperty('--bg','#1a1830');
+    document.documentElement.style.setProperty('--surface','#252340');
+    document.documentElement.style.setProperty('--text','#e8e6ff');
+    document.documentElement.style.setProperty('--sub','#9b99bb');
+  } else {
+    document.documentElement.style.setProperty('--bg','#F0EFF8');
+    document.documentElement.style.setProperty('--surface','#FFFFFF');
+    document.documentElement.style.setProperty('--text','#2D2B55');
+    document.documentElement.style.setProperty('--sub','#8886AA');
+  }
+}
+
+function exportData(){
+  const blob = new Blob([JSON.stringify({ideas, catLabels:CAT_LABELS}, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'idea-note-backup-'+new Date().toISOString().slice(0,10)+'.json';
+  a.click();
+  showToast('📤 エクスポートしました');
+}
+
+function importData(){ document.getElementById('import-input').click(); }
+
+async function doImport(input){
+  const file = input.files[0]; if(!file) return;
+  const text = await file.text();
+  try{
+    const data = JSON.parse(text);
+    if(!Array.isArray(data.ideas)) throw new Error();
+    if(!confirm(`${data.ideas.length}件のデータをインポートします。現在のデータに追加されます。よろしいですか？`)) return;
+    if(data.catLabels) { Object.assign(CAT_LABELS, data.catLabels); localStorage.setItem('catLabels',JSON.stringify(CAT_LABELS)); }
+    for(const item of data.ideas){ await dbPut(item); }
+    ideas = await dbGetAll();
+    ideas.sort((a,b)=>b.id-a.id);
+    render();
+    showToast(`📥 ${data.ideas.length}件をインポートしました`);
+  } catch(e){ showToast('❌ ファイルの形式が正しくありません'); }
+  input.value='';
+}
+
+async function clearAll(){
+  if(!confirm('すべてのデータを削除しますか？この操作は元に戻せません。')) return;
+  for(const item of [...ideas]){ await dbDelete(item.id); }
+  ideas=[];
+  render();
+  showToast('🗑️ すべて削除しました');
+}
+let ideas = [];
+let currentTab = 'all';
+let currentFilter = 'all';
+let pendingFiles = [];
+let db;
+
+// IndexedDB初期化
+function openDB(){
+  return new Promise((res,rej)=>{
+    const req = indexedDB.open('ideaNote',1);
+    req.onupgradeneeded = e => e.target.result.createObjectStore('ideas',{keyPath:'id'});
+    req.onsuccess = e => { db=e.target.result; res(db); };
+    req.onerror = rej;
+  });
+}
+function dbGetAll(){
+  return new Promise((res,rej)=>{
+    const req = db.transaction('ideas','readonly').objectStore('ideas').getAll();
+    req.onsuccess = ()=>res(req.result);
+    req.onerror = rej;
+  });
+}
+function dbPut(item){
+  return new Promise((res,rej)=>{
+    const tx = db.transaction('ideas','readwrite');
+    tx.objectStore('ideas').put(item);
+    tx.oncomplete=res; tx.onerror=rej;
+  });
+}
+function dbDelete(id){
+  return new Promise((res,rej)=>{
+    const tx = db.transaction('ideas','readwrite');
+    tx.objectStore('ideas').delete(id);
+    tx.oncomplete=res; tx.onerror=rej;
+  });
+}
+
+async function init(){
+  // 保存済みカテゴリ名を復元
+  const savedCat = localStorage.getItem('catLabels');
+  if(savedCat) Object.assign(CAT_LABELS, JSON.parse(savedCat));
+  // ダークモード復元
+  if(localStorage.getItem('darkMode')==='1') toggleDark(true);
+  await openDB();
+  ideas = await dbGetAll();
+  ideas.sort((a,b)=>b.id-a.id);
+  render();
+}
+init();
+
+// ファイル読み込み
+function handleFiles(files){
+  Array.from(files).forEach(file=>{
+    const reader = new FileReader();
+    reader.onload = e => {
+      pendingFiles.push({name:file.name,dataUrl:e.target.result,type:file.type});
+      renderPreview();
+    };
+    reader.readAsDataURL(file);
+  });
+  document.getElementById('f-files').value='';
+}
+function renderPreview(){
+  document.getElementById('preview-grid').innerHTML = pendingFiles.map((f,i)=>{
+    if(f.type.startsWith('image/')){
+      return `<div class="preview-item"><img src="${f.dataUrl}" alt=""><button class="preview-remove" onclick="removeFile(${i})">✕</button></div>`;
+    }
+    const emoji = f.type.includes('pdf')?'📄':'📁';
+    const ext = f.name.split('.').pop().toUpperCase();
+    return `<div class="preview-item"><div class="file-icon"><div class="file-emoji">${emoji}</div>${esc(ext)}</div><button class="preview-remove" onclick="removeFile(${i})">✕</button></div>`;
+  }).join('');
+}
+function removeFile(i){ pendingFiles.splice(i,1); renderPreview(); }
+
+// モーダル
+function openAddModal(){
+  document.getElementById('add-overlay').classList.add('open');
+  setTimeout(()=>document.getElementById('f-title').focus(),300);
+}
+function closeAddModal(){
+  document.getElementById('add-overlay').classList.remove('open');
+  resetForm();
+}
+function resetForm(){
+  ['f-title','f-body'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f-cat').value='daily';
+  document.getElementById('f-files').value='';
+  pendingFiles=[];
+  renderPreview();
+}
+function overlayClose(e,id){
+  if(e.target.id===id){
+    document.getElementById(id).classList.remove('open');
+    if(id==='add-overlay') resetForm();
+  }
+}
+
+// 追加
+async function addIdea(){
+  const title = document.getElementById('f-title').value.trim();
+  if(!title){ showToast('タイトルを入力してください'); return; }
+  const item = {
+    id: Date.now(),
+    title,
+    body: document.getElementById('f-body').value.trim(),
+    cat: document.getElementById('f-cat').value,
+    done: false,
+    subtasks: [],
+    files: [...pendingFiles],
+    date: new Date().toLocaleDateString('ja-JP',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})
+  };
+  await dbPut(item);
+  ideas.unshift(item);
+  closeAddModal();
+  render();
+  showToast('💡 追加しました！');
+}
+
+// 完了トグル
+async function toggleDone(id){
+  const item = ideas.find(i=>i.id===id);
+  if(!item) return;
+  item.done=!item.done;
+  await dbPut(item);
+  render();
+  closeDetail();
+  showToast(item.done?'✅ 完了！':'🔄 未完了に戻しました');
+}
+
+// 削除
+async function deleteIdea(id){
+  if(!confirm('このアイデアを削除しますか？')) return;
+  ideas=ideas.filter(i=>i.id!==id);
+  await dbDelete(id);
+  closeDetail();
+  render();
+  showToast('🗑️ 削除しました');
+}
+
+// 詳細モーダル
+function openDetail(id){
+  const item = ideas.find(i=>i.id===id);
+  if(!item) return;
+  let attachHTML='';
+  if(item.files && item.files.length>0){
+    const imgs   = item.files.filter(f=>f.type.startsWith('image/'));
+    const others = item.files.filter(f=>!f.type.startsWith('image/'));
+    attachHTML = `<div class="detail-section-label">📎 添付ファイル (${item.files.length}件)</div>
+    <div class="detail-attachments">
+      ${imgs.map(f=>`<img class="detail-img" src="${f.dataUrl}" alt="${esc(f.name)}" onclick="openLightbox('${f.dataUrl}')">`).join('')}
+      ${others.map(f=>{
+        const emoji=f.type.includes('pdf')?'📄':'📁';
+        return `<a class="detail-file-chip" href="${f.dataUrl}" download="${esc(f.name)}">${emoji} ${esc(f.name)}</a>`;
+      }).join('')}
+    </div>`;
+  }
+  document.getElementById('detail-content').innerHTML=`
+    <div class="modal-handle"></div>
+    <div class="detail-cat-row">
+      <span class="cat-badge" style="background:${CAT_COLORS[item.cat]};color:${CAT_TEXT[item.cat]}">${CAT_LABELS[item.cat]}</span>
+      <span class="idea-date">${item.date}</span>
+      ${item.done?'<span style="font-size:.75rem;color:#6C63FF;font-weight:700">✅ 完了済み</span>':''}
+    </div>
+    <div class="detail-title">${esc(item.title)}</div>
+    ${item.body?`<div class="detail-text">${esc(item.body)}</div>`:''}
+    ${attachHTML}
+    ${subtaskHTML(item)}
+    <div class="detail-actions">
+      <button class="action-btn btn-done" onclick="toggleDone(${item.id})">${item.done?'🔄 未完了に戻す':'✅ 完了にする'}</button>
+      <button class="action-btn btn-delete" onclick="deleteIdea(${item.id})">🗑️ 削除</button>
+    </div>`;
+  document.getElementById('detail-overlay').classList.add('open');
+}
+
+// ===== サブタスク =====
+function subtaskHTML(item){
+  const subs = item.subtasks || [];
+  const done  = subs.filter(s=>s.done).length;
+  const pct   = subs.length ? Math.round(done/subs.length*100) : 0;
+  const progressBar = subs.length ? `
+    <div class="subtask-progress">
+      <div class="subtask-progress-row">
+        <span>進捗</span><span>${done}/${subs.length} 完了 (${pct}%)</span>
+      </div>
+      <div class="subtask-bar-track"><div class="subtask-bar-fill" style="width:${pct}%"></div></div>
+    </div>` : '';
+  const listHTML = subs.map((s,i)=>`
+    <div class="subtask-item" id="sti-${item.id}-${i}">
+      <button class="subtask-check ${s.done?'done':''}" onclick="toggleSubtask(${item.id},${i})"></button>
+      <span class="subtask-text ${s.done?'done':''}">${esc(s.text)}</span>
+      <button class="subtask-del" onclick="deleteSubtask(${item.id},${i})">✕</button>
+    </div>`).join('');
+  return `
+    <div class="subtask-section">
+      <div class="subtask-section-label">📋 サブタスク</div>
+      <div class="subtask-add-row">
+        <input class="subtask-input" id="subtask-input-${item.id}" type="text" placeholder="手順・タスクを追加…"
+          onkeydown="if(event.key==='Enter')addSubtask(${item.id})">
+        <button class="subtask-add-btn" onclick="addSubtask(${item.id})">＋</button>
+      </div>
+      <div class="subtask-list" id="subtask-list-${item.id}">${listHTML}</div>
+      ${progressBar}
+    </div>`;
+}
+
+function cardSubtaskBar(item){
+  const subs = item.subtasks || [];
+  if(!subs.length) return '';
+  const done = subs.filter(s=>s.done).length;
+  const pct  = Math.round(done/subs.length*100);
+  return `<div class="card-subtask-row">
+    <div class="card-subtask-bar"><div class="card-subtask-fill" style="width:${pct}%"></div></div>
+    <span class="card-subtask-label">${done}/${subs.length}</span>
+  </div>`;
+}
+
+async function addSubtask(ideaId){
+  const inp = document.getElementById('subtask-input-'+ideaId);
+  const text = inp.value.trim();
+  if(!text){ inp.focus(); return; }
+  const item = ideas.find(i=>i.id===ideaId);
+  if(!item) return;
+  if(!item.subtasks) item.subtasks=[];
+  item.subtasks.push({text, done:false});
+  await dbPut(item);
+  inp.value='';
+  // 詳細モーダルのサブタスク部分だけ再描画
+  const listEl = document.getElementById('subtask-list-'+ideaId);
+  if(listEl) listEl.outerHTML = `<div class="subtask-list" id="subtask-list-${ideaId}">${item.subtasks.map((s,i)=>`
+    <div class="subtask-item">
+      <button class="subtask-check ${s.done?'done':''}" onclick="toggleSubtask(${ideaId},${i})"></button>
+      <span class="subtask-text ${s.done?'done':''}">${esc(s.text)}</span>
+      <button class="subtask-del" onclick="deleteSubtask(${ideaId},${i})">✕</button>
+    </div>`).join('')}</div>`;
+  render();
+  inp.focus();
+}
+
+async function toggleSubtask(ideaId, idx){
+  const item = ideas.find(i=>i.id===ideaId);
+  if(!item||!item.subtasks) return;
+  item.subtasks[idx].done = !item.subtasks[idx].done;
+  await dbPut(item);
+  // サブタスクリストを再描画
+  openDetail(ideaId);
+  render();
+}
+
+async function deleteSubtask(ideaId, idx){
+  const item = ideas.find(i=>i.id===ideaId);
+  if(!item||!item.subtasks) return;
+  item.subtasks.splice(idx,1);
+  await dbPut(item);
+  openDetail(ideaId);
+  render();
+}
+
+function closeDetail(){ document.getElementById('detail-overlay').classList.remove('open'); }
+
+// ライトボックス
+function openLightbox(src){ document.getElementById('lightbox-img').src=src; document.getElementById('lightbox').classList.add('open'); }
+function closeLightbox(){ document.getElementById('lightbox').classList.remove('open'); }
+
+// タブ・フィルター
+function setTab(tab){
+  currentTab=tab;
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['all','daily','work','other'][i]===tab));
+  render();
+}
+function setFilter(filter,btn){
+  currentFilter=filter;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active-filter'));
+  btn.classList.add('active-filter');
+  render();
+}
+
+// レンダリング
+function render(){
+  const listEl=document.getElementById('list');
+  let filtered=ideas.filter(i=>currentTab==='all'||i.cat===currentTab);
+  if(currentFilter==='todo') filtered=filtered.filter(i=>!i.done);
+  if(currentFilter==='done') filtered=filtered.filter(i=>i.done);
+  const total=ideas.length, done=ideas.filter(i=>i.done).length;
+  document.getElementById('stats').textContent=`${total}件 / 完了${done}件`;
+  if(!filtered.length){
+    listEl.innerHTML=`<div class="empty-state"><div class="emoji">💭</div><p>アイデアがありません<br>右下の ＋ ボタンで追加しよう！</p></div>`;
+    return;
+  }
+  const todo=filtered.filter(i=>!i.done);
+  const doneItems=filtered.filter(i=>i.done);
+  let html=todo.map(cardHTML).join('');
+  if(doneItems.length) html+=`<div class="section-label">✅ 完了済み (${doneItems.length}件)</div>`+doneItems.map(cardHTML).join('');
+  listEl.innerHTML=html;
+}
+
+function cardHTML(item){
+  const hasFiles=item.files&&item.files.length>0;
+  const imgFiles=hasFiles?item.files.filter(f=>f.type.startsWith('image/')):[];
+  const otherFiles=hasFiles?item.files.filter(f=>!f.type.startsWith('image/')):[];
+  let thumbHTML='';
+  if(imgFiles.length) thumbHTML+=imgFiles.slice(0,3).map(f=>`<img class="attach-thumb" src="${f.dataUrl}" alt="">`).join('');
+  if(otherFiles.length) thumbHTML+=otherFiles.slice(0,2).map(f=>{
+    const emoji=f.type.includes('pdf')?'📄':'📁';
+    return `<span class="attach-file-chip">${emoji} ${esc(f.name)}</span>`;
+  }).join('');
+  return `
+    <div class="idea-card cat-${item.cat} ${item.done?'is-done':''}" onclick="openDetail(${item.id})">
+      <div class="check-wrap">
+        <button class="check-btn ${item.done?'checked':''}" onclick="event.stopPropagation();toggleDone(${item.id})"></button>
+      </div>
+      <div class="idea-body">
+        <div class="idea-meta">
+          <span class="cat-badge">${CAT_LABELS[item.cat]}</span>
+          <span class="idea-date">${item.date}</span>
+          ${hasFiles?`<span style="font-size:.72rem;color:var(--sub)">📎${item.files.length}</span>`:''}
+        </div>
+        <div class="idea-title">${esc(item.title)}</div>
+        ${item.body?`<div class="idea-text">${esc(item.body).substring(0,60)}${item.body.length>60?'…':''}</div>`:''}
+        ${thumbHTML?`<div class="attach-thumb-row">${thumbHTML}</div>`:''}
+      </div>
+    </div>`;
+}
+
+function esc(str){
+  if(!str) return '';
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2200);
+}
+</script>
+</body>
+</html>
